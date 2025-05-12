@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { PureComponent } = require("react");
 const Schema = mongoose.Schema;
 const ObjectId = mongoose.Types.ObjectId;
 const userSchema = new mongoose.Schema({
@@ -33,3 +34,10 @@ const userModel = mongoose.model('User', userSchema);
 const adminModel = mongoose.model('Admin', adminSchema);
 const courseModel = mongoose.model('Admin', courseSchema);
 const purchaseModel = mongoose.model('Purchase', purchaseSchema);
+
+module.exports = {
+    userModel,
+    adminModel,
+    courseModel,
+    purchaseModel
+};
