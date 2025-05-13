@@ -1,6 +1,6 @@
 const {Router} = require("express");
 const adminRouter = Router();
-adminRouter.post("/ignup", function(req,res){
+adminRouter.post("/signup", function(req,res){
      res.json({
         message: "Sign Up End Point of Admin"
     })
@@ -10,7 +10,7 @@ adminRouter.post("/signin", function(req,res){
         message: "Sign Up End Point of Admin"
     })
 });
-adminRouter.use(adminMiddleware);
+// adminRouter.use(adminMiddleware);
 adminRouter.post("/course", function(req,res){
     res.json({
         message: "Course End Point of Admin"
