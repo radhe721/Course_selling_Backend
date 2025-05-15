@@ -1,31 +1,53 @@
 const { Router } = require("express");
 const { userModel } = require("../db");
 const userRouter = Router();
-const bcrypt = require('bcrypt');
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
+
+// Generate JWT Token
+const generateToken = (userId) => {
+    console.log("JWT_SECRET:", process.env.JWT_SECRET ? "Defined" : "Undefined");
+    console.log("JWT_EXPIRES_IN:", process.env.JWT_EXPIRES_IN ? "Defined" : "Undefined");
+    return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES_IN,
+    });
+};
+
+// SIGNUP Route;
 userRouter.post("/signup", async function (req, res) {
     const { email, password, username, lastname } = req.body;
 
     try {
-        // Check if user already exists
+        console.log("Attempting to find user by email:", email);
         const existingUser = await userModel.findOne({ email });
         if (existingUser) {
+            console.log("User already exists for email:", email);
             return res.status(400).json({ message: "User already exists" });
         }
 
-        // Hash the password
+        console.log("Hashing password for email:", email, "Password length:", password ? password.length : "undefined");
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user
-        await userModel.create({
+        console.log("Attempting to create new user for email:", email);
+        const newUser = await userModel.create({
             email,
             password: hashedPassword,
             username,
             lastname
         });
+        console.log("New user created with ID:", newUser._id);
+
+        const token = generateToken(newUser._id);
 
         res.status(201).json({
-            message: "Sign up successfully"
+            message: "Sign up successful",
+            token,
+            user: {
+                id: newUser._id,
+                email: newUser.email,
+                username: newUser.username,
+            }
         });
     } catch (error) {
         console.error(error);
@@ -34,34 +56,74 @@ userRouter.post("/signup", async function (req, res) {
         });
     }
 });
+
+// SIGNIN Route
 userRouter.post("/signin", async function (req, res) {
     const { email, password } = req.body;
 
     try {
+        console.log("Attempting to find user by email for signin:", email);
         const user = await userModel.findOne({ email });
 
         if (!user) {
+            console.log("User not found for email:", email);
             return res.status(400).json({ message: "User not found" });
         }
 
+        console.log("Attempting to compare passwords for user:", user.email);
         const passwordMatch = await bcrypt.compare(password, user.password);
 
         if (!passwordMatch) {
+            console.log("Password mismatch for user:", user.email);
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        res.json({ message: "Signed in successfully" });
+        const token = generateToken(user._id);
+
+        res.json({
+            message: "Signed in successfully",
+            token,
+            user: {
+                id: user._id,
+                email: user.email,
+                username: user.username,
+            }
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "An error occurred during sign in" });
     }
 });
-userRouter.post("/purchases", function (req, res) {
+
+// Middleware to protect routes
+const authMiddleware = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        console.log("Attempting to verify JWT token");
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log("JWT token verified. Decoded payload:", decoded);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        console.error("JWT verification failed:", err.message);
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
+
+// Protected route
+userRouter.post("/purchases", authMiddleware, function (req, res) {
     res.json({
-        message: "User Purchsase End Point"
-    })
-})
+        message: `Hello user ${req.user.id}, here are your purchases.`
+    });
+});
 
 module.exports = {
     userRouter: userRouter
-}
+};

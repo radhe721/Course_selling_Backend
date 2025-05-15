@@ -1,14 +1,92 @@
 const {Router} = require("express");
+const { adminModel } = require("../db");
 const adminRouter = Router();
-adminRouter.post("/signup", function(req,res){
-     res.json({
-        message: "Sign Up End Point of Admin"
-    })
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+// Generate JWT Token
+const generateToken = (adminId) => {
+    console.log("JWT_SECRET:", process.env.JWT_SECRET_admin ? "Defined" : "Undefined");
+    console.log("JWT_EXPIRES_IN:", process.env.JWT_EXPIRES_IN ? "Defined" : "Undefined");
+    return jwt.sign({ id: adminId }, process.env.JWT_SECRET_admin, {
+        expiresIn: process.env.JWT_EXPIRES_IN,
+    });
+};
+adminRouter.post("/signup", async function(req,res){
+    const { email, password, username, lastname } = req.body;
+
+    try {
+        console.log("Attempting to find user by email:", email);
+        const existingUser = await adminModel.findOne({ email });
+        if (existingUser) {
+            console.log("User already exists for email:", email);
+            return res.status(400).json({ message: "User already exists" });
+        }
+
+        console.log("Hashing password for email:", email, "Password length:", password ? password.length : "undefined");
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        console.log("Attempting to create new admin for email:", email);
+        const newAdmin = await adminModel.create({
+            email,
+            password: hashedPassword,
+            username,
+            lastname
+        });
+        console.log("New user created with ID:", newAdmin._id);
+
+        const token = generateToken(newAdmin._id);
+
+        res.status(201).json({
+            message: "Sign up successful",
+            token,
+            user: {
+                id: newAdmin._id,
+               email: newAdmin.email,
+               username: newAdmin.username,
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: "An error occurred during signup"
+        });
+    }
 });
-adminRouter.post("/signin", function(req,res){
-    res.json({
-        message: "Sign Up End Point of Admin"
-    })
+adminRouter.post("/signin", async function(req,res){
+      const { email, password } = req.body;
+
+    try {
+        console.log("Attempting to find user by email for signin:", email);
+        const admin = await adminModel.findOne({ email });
+
+        if (!admin) {
+            console.log("User not found for email:", email);
+            return res.status(400).json({ message: "User not found" });
+        }
+
+        console.log("Attempting to compare passwords for user:", admin.email);
+        const passwordMatch = await bcrypt.compare(password, admin.password);
+
+        if (!passwordMatch) {
+            console.log("Password mismatch for user:", admin.email);
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        const token = generateToken(admin._id);
+
+        res.json({
+            message: "Signed in successfully",
+            token,
+            user: {
+                id: admin._id,
+                email: admin.email,
+                username: admin.username,
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "An error occurred during sign in" });
+    }
 });
 // adminRouter.use(adminMiddleware);
 adminRouter.post("/course", function(req,res){
