@@ -3,6 +3,7 @@ const { userModel } = require("../db");
 const userRouter = Router();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const authMiddleware = require('../middlewares/user');
 
 
 // Generate JWT Token
@@ -58,7 +59,7 @@ userRouter.post("/signup", async function (req, res) {
 });
 
 // SIGNIN Route
-userRouter.post("/signin", async function (req, res) {
+userRouter.post("/signin", authMiddleware, async function (req, res) {
     const { email, password } = req.body;
 
     try {
@@ -95,27 +96,6 @@ userRouter.post("/signin", async function (req, res) {
     }
 });
 
-// Middleware to protect routes
-const authMiddleware = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ message: "No token provided" });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    try {
-        console.log("Attempting to verify JWT token");
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        console.log("JWT token verified. Decoded payload:", decoded);
-        req.user = decoded;
-        next();
-    } catch (err) {
-        console.error("JWT verification failed:", err.message);
-        return res.status(401).json({ message: "Invalid token" });
-    }
-};
 
 // Protected route
 userRouter.post("/purchases", authMiddleware, function (req, res) {

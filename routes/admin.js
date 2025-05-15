@@ -1,8 +1,10 @@
 const {Router} = require("express");
-const { adminModel } = require("../db");
+const { adminModel, courseModel } = require("../db");
 const adminRouter = Router();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const authMiddleware = require('../middlewares/admin');
+
 // Generate JWT Token
 const generateToken = (adminId) => {
     console.log("JWT_SECRET:", process.env.JWT_SECRET_admin ? "Defined" : "Undefined");
@@ -52,7 +54,7 @@ adminRouter.post("/signup", async function(req,res){
         });
     }
 });
-adminRouter.post("/signin", async function(req,res){
+adminRouter.post("/signin", authMiddleware, async function(req,res){
       const { email, password } = req.body;
 
     try {
@@ -89,32 +91,28 @@ adminRouter.post("/signin", async function(req,res){
     }
 });
 // Middleware to protect routes
-const authMiddleware = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ message: "No token provided" });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    try {
-        console.log("Attempting to verify JWT token");
-        const decoded = jwt.verify(token, process.env.JWT_SECRET_admin);
-        console.log("JWT token verified. Decoded payload:", decoded);
-        req.user = decoded;
-        next();
-    } catch (err) {
-        console.error("JWT verification failed:", err.message);
-        return res.status(401).json({ message: "Invalid token" });
-    }
-};
 
 // adminRouter.use(adminMiddleware);
-adminRouter.post("/course", function(req,res){
-    res.json({
-        message: "Course End Point of Admin"
-    })
+adminRouter.post("/course", authMiddleware, async function (req, res) {
+    const adminId = req.user.id; // Corrected to use req.user.id
+    try {
+        const { title, description, price, imageUrl } = req.body; // Fixed spelling of 'description'
+        const course = await courseModel.create({
+            title: title,
+            description: description, // Fixed spelling
+            imageUrl: imageUrl,
+            price: price,
+            creatorId: adminId,
+        });
+        res.status(201).json({ // Added status code
+            message: "Course Created Successfully",
+            course, // Optionally include the created course in the response
+        });
+    } catch (error) { // Fixed error handling
+        console.error("Error creating course:", error);
+        res.status(500).json({ message: "An error occurred while creating the course" });
+    }
 });
 adminRouter.put("/course", function(req,res){
     res.json({

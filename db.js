@@ -25,7 +25,7 @@ const adminSchema = new mongoose.Schema({
 });
 
 const courseSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true },
+    discription: { type: String, required: true },
     title: { type: String },
     price: { type: Number },
     imageUrl: { type: String },
